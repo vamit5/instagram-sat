@@ -807,7 +807,7 @@ def is_priority_unit(unit):
     return any(PRIORITY_PATTERN.search(video["name"]) for video in unit)
 
 
-ALLOWED_UTC_HOUR_WINDOWS = [(4, 9), (16, 21)]
+ALLOWED_UTC_HOUR_WINDOWS = [(4, 9), (10, 11), (16, 21)]
 
 
 def is_within_allowed_window():
