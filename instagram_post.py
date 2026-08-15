@@ -71,9 +71,9 @@ TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/
 TOP_TEXT_Y_FRACTION = 0.14
 BOTTOM_TEXT_Y_FRACTION = 0.80
 
-# Velicina slova za DONJI tekst (ostaje nepromenjeno, kao do sada).
-FONT_BASE_SIZE = 90
-FONT_MIN_SIZE = 40
+# Velicina slova za DONJI tekst -- malo smanjena po zahtevu.
+FONT_BASE_SIZE = 78
+FONT_MIN_SIZE = 34
 
 # Velicina slova za GORNJI tekst -- namerno manja ("mala slova", po zahtevu).
 TOP_FONT_BASE_SIZE = 54
@@ -140,7 +140,7 @@ TIMER_CLIP_PATTERN = re.compile(r"2\s*minute\s*timer", re.IGNORECASE)
 TIMER_LOCAL_PATH = "timer_clip.mov"
 TIMER_WIDTH_FRACTION = 0.32  # sirina tajmera kao % sirine videa
 TIMER_MARGIN_FRACTION = 0.04  # razmak od LEVE ivice kadra
-TIMER_Y_FRACTION = 0.24  # razmak od GORNJE ivice -- ispod IG korisnickog imena i gornjeg teksta
+TIMER_Y_FRACTION = 0.34  # razmak od GORNJE ivice -- dodatno spusteno nadole
 
 # Koliko puta da se pokusa ponovo (uz pauzu koja se svaki put duplira) pre
 # nego sto se stvarno odustane od mreznog poziva -- ovo pokriva velecinu
