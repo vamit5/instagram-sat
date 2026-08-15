@@ -7,6 +7,12 @@ Duzi klipovi ostaju nepromenjeni, objavljuju se pojedinacno. Spojeni klipovi
 ZADRZAVAJU svoj originalni zvuk (ako neki klip nema zvuk, dodaje mu se tiha
 audio traka iste duzine, da bi spajanje uopste bilo moguce).
 
+Fajl cije ime sadrzi "2 minute timer" (bilo koje pisanje, velika/mala slova
+nebitno) se NIKAD ne tretira kao obican rotacioni klip -- izdvaja se iz
+liste za objavu i koristi se kao mali countdown tajmer koji se "zalepi"
+preko GORNJEG LEVOG ugla SVAKOG objavljenog reel-a (i normalnih i
+prioritetnih), malen, van zone teksta i van Instagram-ovih ikonica.
+
 Trajanje svakog videa se prvo pokusava ocitati iz Google Drive metapodataka
 (brzo, bez preuzimanja). Ako Drive to jos nije izracunao (cesto slucaj sa
 netom otpremljenim fajlovima), skripta SAMA preuzme taj video i izmeri
@@ -61,8 +67,14 @@ TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/
 TOP_TEXT_Y_FRACTION = 0.14
 BOTTOM_TEXT_Y_FRACTION = 0.80
 
+# Velicina slova za DONJI tekst (ostaje nepromenjeno, kao do sada).
 FONT_BASE_SIZE = 90
 FONT_MIN_SIZE = 40
+
+# Velicina slova za GORNJI tekst -- namerno manja ("mala slova", po zahtevu).
+TOP_FONT_BASE_SIZE = 54
+TOP_FONT_MIN_SIZE = 28
+
 BOX_BORDER = 24
 BOX_RADIUS = 18
 BOX_COLOR = (0, 0, 0, 140)
@@ -75,13 +87,24 @@ SHORT_CLIP_THRESHOLD = 9.0
 MIN_COMBINED_DURATION = 15.0
 
 TOP_TEXTS = [
-    "Da li ćeš preživeti ceo VAMIT-5 sat?",
-    "99% ljudi ne uspe kompletan VAMIT-5 sat",
-    "Da li ćeš uspeti ceo sat za 2 minuta?",
-    "90% ljudi padne na broju 8",
-    "Do kog broja bi ti stigao?",
-    "Savršen proizvod za trenere",
-    "Savršen proizvod za nemirnu decu",
+    "ŽURKA ZA PONETI 😂",
+    "ODMOTAJ I NAPRAVI HAOS U DRUŠTVU.",
+    "TRENERI, OVO JE VAŠE ZLATO.",
+    "ŽURKA U DŽEPU.",
+    "PONESI ŽURKU GDE GOD IDEŠ.",
+    "ODMOTAJ OVO I ZA MINUT NASTAJE HAOS 😂",
+    "TRENERU, OVO VADIŠ KAD HOĆEŠ DA PODIGNEŠ ATMOSFERU.",
+    "ODMOTAJ SAT I ZA 30 sek JE 50 LJUDI OKO TEBE 😂",
+    "JEDAN SAT, 100 LJUDI OKOLO 😂",
+    "ZA TRENERE KOJI VOLE DA NAPRAVE HAOS.",
+    "99% LJUDI NE USPE CEO SAT ZA 2 MIN.",
+    "PONESI GA NA TRENING I IZAZOVI CELU EKIPU",
+    "IMAŠ 2 MINUTA ZA CEO KRUG",
+    "VEĆINA PADNE NA BROJU 10",
+    "NAJLAKŠI NAČIN DA NAPRAVIŠ TAKMIČENJE",
+    "ODMOTAJ SAT I ZA MINUT JE 50 LJUDI OKO TEBE 😂",
+    "JEDAN SAT, A 100 LJUDI SE OKUPILO ZA 1 MINUT 😂",
+    "VAMIT-5 SAT - ŽURKA ZA PONETI",
 ]
 
 BOTTOM_TEXTS = [
@@ -101,9 +124,18 @@ RULE_TEXT = (
 # tretiraju kao "prioritetni" (viralni) klipovi: (1) svaka PRIORITY_BOOST_EVERY-ta
 # objava je "bonus" -- preskace se normalan redosled i ubaci se prioritetan
 # klip (rotirajuci i medju njima), i (2) na te klipove se NIKAD ne stavlja
-# tekst preko videa (samo opis ispod objave ostaje normalan).
+# tekst preko videa (samo opis ispod objave ostaje normalan). Timer overlay
+# (dole) se PRIMENJUJE i na prioritetne klipove.
 PRIORITY_PATTERN = re.compile(r"prioritet", re.IGNORECASE)
 PRIORITY_BOOST_EVERY = 3
+
+# Fajl sa ovim imenom (bilo gde u nazivu, velika/mala slova nebitno) se NIKAD
+# ne tretira kao obican rotacioni klip -- to je mali countdown tajmer koji
+# se "zalepi" preko svakog objavljenog reel-a.
+TIMER_CLIP_PATTERN = re.compile(r"2\s*minute\s*timer", re.IGNORECASE)
+TIMER_LOCAL_PATH = "timer_clip.mov"
+TIMER_WIDTH_FRACTION = 0.22  # sirina tajmera kao % sirine videa
+TIMER_MARGIN_FRACTION = 0.04  # razmak od ivice kadra (gore i levo)
 
 # Koliko puta da se pokusa ponovo (uz pauzu koja se svaki put duplira) pre
 # nego sto se stvarno odustane od mreznog poziva -- ovo pokriva velecinu
@@ -449,13 +481,13 @@ def wrap_tokens(tokens, font, fontsize, max_width_px):
     return lines
 
 
-def fit_tokens(text, video_width, max_lines):
+def fit_tokens(text, video_width, max_lines, base_size=FONT_BASE_SIZE, min_size=FONT_MIN_SIZE):
     max_width_px = int(video_width * MAX_TEXT_WIDTH_FRACTION) - (2 * BOX_BORDER)
     max_width_px = max(max_width_px, 50)
     tokens = tokenize(text)
 
-    fontsize = FONT_BASE_SIZE
-    while fontsize >= FONT_MIN_SIZE:
+    fontsize = base_size
+    while fontsize >= min_size:
         font = ImageFont.truetype(FONT_PATH, fontsize)
         lines = wrap_tokens(tokens, font, fontsize, max_width_px)
         space_w = font.getlength(" ")
@@ -467,9 +499,9 @@ def fit_tokens(text, video_width, max_lines):
     # Ako ni na najmanjoj velicini ne stane u trazeni broj redova, NIKAD ne
     # brisemo reci -- vracamo SVE redove (makar bilo vise redova nego sto
     # je trazeno). Bolje veci natpis nego odsecen tekst.
-    font = ImageFont.truetype(FONT_PATH, FONT_MIN_SIZE)
-    lines = wrap_tokens(tokens, font, FONT_MIN_SIZE, max_width_px)
-    return lines, FONT_MIN_SIZE
+    font = ImageFont.truetype(FONT_PATH, min_size)
+    lines = wrap_tokens(tokens, font, min_size, max_width_px)
+    return lines, min_size
 
 
 def get_emoji_image(char, size, cache):
@@ -575,7 +607,10 @@ def add_text_overlay(local_in, local_out, width, height, top_original, bottom_or
     target_w, target_h = compute_capped_dimensions(width, height)
     emoji_cache = {}
 
-    top_lines, top_size = fit_tokens(top_original, target_w, max_lines=2)
+    top_lines, top_size = fit_tokens(
+        top_original, target_w, max_lines=2,
+        base_size=TOP_FONT_BASE_SIZE, min_size=TOP_FONT_MIN_SIZE,
+    )
     bottom_lines, bottom_size = fit_tokens(bottom_original, target_w, max_lines=1)
 
     top_img = render_caption_image(top_lines, top_size, emoji_cache)
@@ -607,6 +642,42 @@ def add_text_overlay(local_in, local_out, width, height, top_original, bottom_or
         local_out,
     ]
     print("Pokrecem ffmpeg:", " ".join(cmd))
+    with_retry(subprocess.run, cmd, retries=2, delay=3, check=True)
+
+
+def is_timer_clip(video):
+    return bool(TIMER_CLIP_PATTERN.search(video["name"]))
+
+
+def apply_timer_overlay(local_in, local_out, timer_path):
+    """Dodaje mali countdown tajmer u GORNJI LEVI ugao videa. Timer je
+    baza (input 0) je glavni video -- pa izlazna duzina UVEK prati
+    trajanje glavnog videa (tajmer se prirodno "isece" ako je video kraci
+    od 2 minuta, sto je uobicajen slucaj za reels)."""
+    width, height = get_video_dimensions(local_in)
+    timer_w = int(width * TIMER_WIDTH_FRACTION)
+    timer_w -= timer_w % 2
+    x_offset = int(width * TIMER_MARGIN_FRACTION)
+    y_offset = int(height * TIMER_MARGIN_FRACTION)
+
+    filter_complex = (
+        f"[1:v]scale={timer_w}:-2[timer];"
+        f"[0:v][timer]overlay={x_offset}:{y_offset}[outv]"
+    )
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", local_in,
+        "-i", timer_path,
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+        "-map", "0:a?",
+        "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
+        "-maxrate", "4M", "-bufsize", "8M",
+        "-c:a", "aac", "-b:a", "128k",
+        local_out,
+    ]
+    print("Dodajem tajmer overlay:", " ".join(cmd))
     with_retry(subprocess.run, cmd, retries=2, delay=3, check=True)
 
 
@@ -793,6 +864,26 @@ def main():
         print("Nema video fajlova u Google Drive folderu. Preskacem.")
         return
 
+    # Izdvoj tajmer klip iz liste PRE bilo cega drugog -- nikad ne sme da
+    # udje u obicnu rotaciju.
+    timer_video = next((v for v in videos if is_timer_clip(v)), None)
+    videos = [v for v in videos if not is_timer_clip(v)]
+
+    if not videos:
+        print("Nema video fajlova (posle izdvajanja tajmer klipa) u folderu. Preskacem.")
+        return
+
+    timer_local_path = None
+    if timer_video:
+        try:
+            download_file(drive, timer_video["id"], TIMER_LOCAL_PATH)
+            timer_local_path = TIMER_LOCAL_PATH
+            print(f"Tajmer klip preuzet: {timer_video['name']}")
+        except Exception as e:
+            print(f"Ne mogu da preuzmem tajmer klip: {e} -- nastavljam bez tajmera.")
+    else:
+        print("Tajmer klip ('2 Minute Timer') nije pronadjen u folderu -- nastavljam bez tajmera.")
+
     ensure_durations(drive, videos)
     playlist = build_playlist(videos)
     priority_units = [u for u in playlist if is_priority_unit(u)]
@@ -849,6 +940,11 @@ def main():
         print(f"Dimenzije videa (posle rotacije): {width}x{height}")
         add_text_overlay(local_in, local_out, width, height, top_original, bottom_original)
         video_to_upload = local_out
+
+    if timer_local_path:
+        local_with_timer = "sa_tajmerom.mp4"
+        apply_timer_overlay(video_to_upload, local_with_timer, timer_local_path)
+        video_to_upload = local_with_timer
 
     video_url = upload_to_cloudinary(video_to_upload)
     print(f"Video otpremljen na: {video_url}")
