@@ -10,8 +10,12 @@ audio traka iste duzine, da bi spajanje uopste bilo moguce).
 Fajl cije ime sadrzi "2 minute timer" (bilo koje pisanje, velika/mala slova
 nebitno) se NIKAD ne tretira kao obican rotacioni klip -- izdvaja se iz
 liste za objavu i koristi se kao mali countdown tajmer koji se "zalepi"
-preko GORNJEG LEVOG ugla SVAKOG objavljenog reel-a (i normalnih i
-prioritetnih), malen, van zone teksta i van Instagram-ovih ikonica.
+preko svakog objavljenog reel-a (i normalnih i prioritetnih), ispod zone
+gornjeg teksta i ispod Instagram korisnickog imena. Tajmer je EKSPLICITNO
+skracen (preko ffmpeg "-t" opcije na ulazu) na TACNU duzinu glavnog videa
+PRE spajanja, plus "-shortest" kao dodatna sigurnosna mera -- garantuje da
+konacan video NIKAD ne bude duzi od stvarnog reel-a, cak i kad je tajmer
+(2 min) duzi od samog klipa.
 
 Trajanje svakog videa se prvo pokusava ocitati iz Google Drive metapodataka
 (brzo, bez preuzimanja). Ako Drive to jos nije izracunao (cesto slucaj sa
@@ -134,8 +138,9 @@ PRIORITY_BOOST_EVERY = 3
 # se "zalepi" preko svakog objavljenog reel-a.
 TIMER_CLIP_PATTERN = re.compile(r"2\s*minute\s*timer", re.IGNORECASE)
 TIMER_LOCAL_PATH = "timer_clip.mov"
-TIMER_WIDTH_FRACTION = 0.22  # sirina tajmera kao % sirine videa
-TIMER_MARGIN_FRACTION = 0.04  # razmak od ivice kadra (gore i levo)
+TIMER_WIDTH_FRACTION = 0.32  # sirina tajmera kao % sirine videa
+TIMER_MARGIN_FRACTION = 0.04  # razmak od LEVE ivice kadra
+TIMER_Y_FRACTION = 0.24  # razmak od GORNJE ivice -- ispod IG korisnickog imena i gornjeg teksta
 
 # Koliko puta da se pokusa ponovo (uz pauzu koja se svaki put duplira) pre
 # nego sto se stvarno odustane od mreznog poziva -- ovo pokriva velecinu
@@ -650,15 +655,19 @@ def is_timer_clip(video):
 
 
 def apply_timer_overlay(local_in, local_out, timer_path):
-    """Dodaje mali countdown tajmer u GORNJI LEVI ugao videa. Timer je
-    baza (input 0) je glavni video -- pa izlazna duzina UVEK prati
-    trajanje glavnog videa (tajmer se prirodno "isece" ako je video kraci
-    od 2 minuta, sto je uobicajen slucaj za reels)."""
+    """Dodaje mali countdown tajmer preko videa, ispod IG korisnickog
+    imena i ispod gornjeg teksta. KLJUCNO: tajmer input se EKSPLICITNO
+    skracuje (preko "-t" opcije na ulazu) na TACNU duzinu glavnog videa,
+    plus "-shortest" kao dodatna sigurnosna mera -- garantuje da konacan
+    video NIKAD ne bude duzi od stvarnog glavnog videa, cak i kad je
+    tajmer klip (2 min) duzi od samog reel-a (uobicajen slucaj)."""
     width, height = get_video_dimensions(local_in)
+    main_duration = get_duration_via_ffprobe(local_in)
+
     timer_w = int(width * TIMER_WIDTH_FRACTION)
     timer_w -= timer_w % 2
     x_offset = int(width * TIMER_MARGIN_FRACTION)
-    y_offset = int(height * TIMER_MARGIN_FRACTION)
+    y_offset = int(height * TIMER_Y_FRACTION)
 
     filter_complex = (
         f"[1:v]scale={timer_w}:-2[timer];"
@@ -668,10 +677,12 @@ def apply_timer_overlay(local_in, local_out, timer_path):
     cmd = [
         "ffmpeg", "-y",
         "-i", local_in,
+        "-t", f"{main_duration:.3f}",
         "-i", timer_path,
         "-filter_complex", filter_complex,
         "-map", "[outv]",
         "-map", "0:a?",
+        "-shortest",
         "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
         "-maxrate", "4M", "-bufsize", "8M",
         "-c:a", "aac", "-b:a", "128k",
@@ -807,7 +818,7 @@ def is_priority_unit(unit):
     return any(PRIORITY_PATTERN.search(video["name"]) for video in unit)
 
 
-ALLOWED_UTC_HOUR_WINDOWS = [(4, 9), (10, 11), (16, 21)]
+ALLOWED_UTC_HOUR_WINDOWS = [(4, 9), (16, 21)]
 
 
 def is_within_allowed_window():
