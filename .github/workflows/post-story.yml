@@ -1,0 +1,115 @@
+name: Objavi Instagram Story
+
+# Objavljuje 4x dnevno (08:30, 12:30, 17:30, 21:30 po srpskom letnjem
+# vremenu = UTC 06:30, 10:30, 15:30, 19:30) SAMO prioritetne klipove kao
+# Instagram Stories (ne Reels). Story traje 24h na Instagramu.
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+    - cron: "30 10 * * *"
+    - cron: "30 15 * * *"
+    - cron: "30 19 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Preuzmi repozitorijum
+        uses: actions/checkout@v4
+
+      - name: Zauzmi lock (sprecava duple story objave)
+        id: lock
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          NOW=$(date +%s)
+          LOCK_MAX_AGE=1500
+
+          LOCK_TIME=0
+          if [ -f lock_story.txt ]; then
+            LOCK_TIME=$(cat lock_story.txt 2>/dev/null || echo 0)
+          fi
+          case "$LOCK_TIME" in
+            ''|*[!0-9]*) LOCK_TIME=0 ;;
+          esac
+
+          AGE=$((NOW - LOCK_TIME))
+
+          if [ "$AGE" -lt "$LOCK_MAX_AGE" ]; then
+            echo "Lock je svez (star $AGE s) -- preskacem ovo pokretanje."
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$NOW" > lock_story.txt
+          git add lock_story.txt
+          git commit -m "Claim story lock [skip ci]"
+
+          if git push; then
+            echo "Lock uspesno zauzet, nastavljam."
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Neko drugi je zauzeo lock u medjuvremenu, preskacem."
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Podesi Python
+        if: steps.lock.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instaliraj ffmpeg
+        if: steps.lock.outputs.should_run == 'true'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Instaliraj biblioteke
+        if: steps.lock.outputs.should_run == 'true'
+        run: pip install requests google-api-python-client google-auth
+
+      - name: Objavi story
+        if: steps.lock.outputs.should_run == 'true'
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_ACCOUNT_ID: ${{ secrets.IG_ACCOUNT_ID }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+        run: python instagram_story.py
+
+      - name: Sacuvaj napredak (state.json)
+        if: steps.lock.outputs.should_run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git commit -m "Update story state [skip ci]" || echo "Nema promena"
+
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main && git push && break
+            echo "Push nije uspeo (pokusaj $i/5), pokusavam ponovo za 5s..."
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
+
+      - name: Otkljucaj lock
+        if: always() && steps.lock.outputs.should_run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "0" > lock_story.txt
+          git add lock_story.txt
+          git commit -m "Release story lock [skip ci]" || echo "Nema promena"
+
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main && git push && break
+            echo "Push nije uspeo (pokusaj $i/5), pokusavam ponovo za 5s..."
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
