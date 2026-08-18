@@ -71,7 +71,7 @@ TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/
 TOP_TEXT_Y_FRACTION = 0.14
 BOTTOM_TEXT_Y_FRACTION = 0.80
 
-# Velicina slova za DONJI tekst -- malo smanjena po zahtevu.
+# Velicina slova za DONJI tekst (ostaje nepromenjeno, kao do sada).
 FONT_BASE_SIZE = 78
 FONT_MIN_SIZE = 34
 
@@ -115,8 +115,8 @@ BOTTOM_TEXTS = [
     "Poruči danas za samo 19€",
     "Danas samo 19€ (Link u BIO)",
     "Još samo danas 19€",
-    "Dostava širom Evrope 😍",
     "Poruči danas - stiže brzo 🕐",
+    "Dostava samo po Srbiji",
 ]
 
 RULE_TEXT = (
