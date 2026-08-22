@@ -1,22 +1,20 @@
 {
-  "last_index": 20,
+  "last_index": 21,
   "top_queue": [
-    0,
     2,
     16,
     4,
     14,
     12
   ],
-  "top_last": 10,
+  "top_last": 0,
   "bottom_queue": [
-    1,
     4,
     3,
     0
   ],
-  "bottom_last": 2,
-  "run_counter": 1516,
+  "bottom_last": 1,
+  "run_counter": 1517,
   "priority_index": 0,
   "story_last_index": 4
 }
