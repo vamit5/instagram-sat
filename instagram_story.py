@@ -149,13 +149,14 @@ def compress_video(local_in, local_out):
     target_w, target_h = compute_capped_dimensions(width, height)
     cmd = [
         "ffmpeg", "-y", "-i", local_in,
+        "-t", "60",
         "-vf", f"scale={target_w}:{target_h}",
         "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
         "-maxrate", "4M", "-bufsize", "8M",
         "-c:a", "aac", "-b:a", "128k",
         local_out,
     ]
-    print("Kompresujem story klip:", " ".join(cmd))
+    print("Kompresujem story klip (skraceno na max 60s -- Instagram Stories limit):", " ".join(cmd))
     with_retry(subprocess.run, cmd, retries=2, delay=3, check=True)
 
 
