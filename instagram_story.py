@@ -211,7 +211,7 @@ def wait_for_container(container_id, access_token, timeout=600):
     while time.time() - start < timeout:
         try:
             r = requests.get(
-                url, params={"fields": "status_code", "access_token": access_token}, timeout=30
+                url, params={"fields": "status_code,status", "access_token": access_token}, timeout=30
             )
             r.raise_for_status()
             status = r.json().get("status_code")
@@ -223,7 +223,8 @@ def wait_for_container(container_id, access_token, timeout=600):
         if status == "FINISHED":
             return True
         if status == "ERROR":
-            raise RuntimeError("Instagram je prijavio gresku pri obradi story videa.")
+            error_detail = r.json().get("status", "nepoznato")
+            raise RuntimeError(f"Instagram je prijavio gresku pri obradi story videa: {error_detail}")
         time.sleep(10)
     raise TimeoutError("Isteklo je vreme cekanja na obradu story videa.")
 
