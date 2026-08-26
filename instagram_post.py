@@ -827,7 +827,7 @@ def is_within_allowed_window():
     return any(start <= hour <= end for start, end in ALLOWED_UTC_HOUR_WINDOWS)
 
 
-QUOTA_SAFETY_MARGIN = 1  # ostavi bar toliko slobodnih mesta kao sigurnosnu marginu
+QUOTA_SAFETY_MARGIN = 4  # ostavi bar toliko slobodnih mesta kao sigurnosnu marginu
 
 
 def check_publishing_quota(ig_user_id, access_token):
